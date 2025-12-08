@@ -22,15 +22,25 @@ function App() {
     setError('');
     setResult('');
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/solve?equation=${encodeURIComponent(trimmedEquation)}`,
-      );
+      // POST the equation as JSON to the backend API
+      const response = await fetch(`${API_BASE_URL}/solve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ equation: trimmedEquation }),
+      });
+
       const data: { result?: string; error?: string } = await response.json();
+
+      // Handle error responses (400 Bad Request from backend)
       if (!response.ok) {
         throw new Error(data?.error || 'Request failed');
       }
+
       setResult(data.result || '');
     } catch (err) {
+      // Handle network errors and API errors
       const message = err instanceof Error ? err.message : 'Request failed';
       setError(message);
     } finally {
