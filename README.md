@@ -1,52 +1,82 @@
-## Instructions
+# Quang Ho - Corca Intern Test
 
-This is a test app with a simple form where you enter an equation, send it to the backend, and
-receive the solution for the variable. The backend solution is not implemented yet.
+A production-ready mathematical equation solver featuring intelligent parsing, robust error handling, and security-first design.
 
-Your task is:
+---
 
-- Implement the solver on the backend, return the result to the frontend, and render it.
-- The preferable tool is `sympy`, but you may use any tools or libraries, plus documentation, AI,
-  Stack Overflow, or search engines.
-
-## Submitting the result
-
-- Clone the repository to your GitHub account (you can make it private).
-- Finish the task. It should be runnable in Docker compose.
-- Send the link to your repo to engintern@corca.io
-- After we review the result we will reach out to you and schedule a follow-up call. On this call we
-  will ask additional questions related to this task and ask you to add more functionality.
-
-## Run App With Docker Compose
-
-Install [Docker](https://www.docker.com/), then run:
+## 🚀 Quick Start
 
 ```bash
 docker-compose up --build
 ```
 
-Open the app at [http://localhost:5173](http://localhost:5173). Live reload works for both frontend
-and backend code.
+Then open:
+- **Frontend UI**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:8000](http://localhost:8000)
 
-## Run The App Directly
+---
 
-### Backend
+## ✨ Highlights
+
+This solver goes beyond basic implementation with three key engineering features:
+
+1. **User-Centric Parsing** - Type `2x` instead of `2*x`, just like on paper
+2. **Smart Fallback Strategy** - Handles edge cases like `abs(x) = 5` while preserving complex roots
+3. **Security-First Design** - Uses `sympy.parse_expr()` instead of unsafe `eval()`
+
+**For complete technical details, test instructions, and interview talking points, see:**
+
+**📖 [TESTING.md](./TESTING.md)** ← Full feature documentation
+
+---
+
+## 🧪 Running Tests
 
 ```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-flask --app app run --host 0.0.0.0 --port 8000 --reload
+# Make sure the app is running first
+docker-compose up --build
+
+# In a new terminal, run the test suite
+python test_api.py
 ```
 
-### Frontend
+The test suite covers 18 scenarios across 6 categories: standard math, implicit multiplication, complex roots, smart fallback edge cases, error handling, and security injection attempts.
 
-```bash
-cd frontend
-npm install
-npm run dev -- --host --port 5173
+---
+
+## 🛠️ Stack
+
+- **Backend**: Flask + SymPy (Python)
+- **Frontend**: React + TypeScript + Vite
+- **Styling**: TailwindCSS
+- **Container**: Docker + Docker Compose
+
+---
+
+## 📡 API Example
+
+**POST** `/solve`
+
+```json
+{
+  "equation": "2x + 4 = 10"
+}
 ```
 
-Open the app at [http://localhost:5173](http://localhost:5173). Live reload works for both frontend
-and backend code.
+**Response**:
+```json
+{
+  "result": "x = 3"
+}
+```
+
+---
+
+## 📚 Additional Resources
+
+- **[TESTING.md](./TESTING.md)** - Complete technical documentation
+- **[test_api.py](./test_api.py)** - Automated test suite
+
+---
+
+Built with ❤️ for Corca Engineering Interview
