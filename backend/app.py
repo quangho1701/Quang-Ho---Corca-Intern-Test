@@ -48,16 +48,12 @@ def create_app() -> Flask:
     # to communicate with backend (localhost:8000) across different ports
     CORS(app)
 
-    def is_single_variable_function(expr, var_name: str = 'x') -> bool:
+    def is_single_variable_function(expr) -> bool:
         """
-        Check if an expression is a function of exactly one variable named var_name.
-        Returns True if expr has exactly one free symbol and it matches var_name.
+        Check if an expression is a function of exactly one variable.
+        Returns True if expr has exactly one free symbol.
         """
-        free_syms = expr.free_symbols
-        if len(free_syms) != 1:
-            return False
-        var = list(free_syms)[0]
-        return str(var) == var_name
+        return len(expr.free_symbols) == 1
 
     def generate_plot_image(expr, var: Symbol, x_min: float = -10, x_max: float = 10) -> str | None:
         """
@@ -86,11 +82,12 @@ def create_app() -> Flask:
             return None
         
         # Create the plot
+        var_name = str(var)
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.plot(x_vals[mask], y_vals[mask], 'b-', linewidth=2)
-        ax.set_xlabel('x')
+        ax.set_xlabel(var_name)
         ax.set_ylabel('y')
-        ax.set_title(f'f(x) = {expr}')
+        ax.set_title(f'f({var_name}) = {expr}')
         ax.grid(True, alpha=0.3)
         ax.axhline(y=0, color='k', linewidth=0.5)
         ax.axvline(x=0, color='k', linewidth=0.5)
@@ -221,13 +218,14 @@ def create_app() -> Flask:
                 result = sympify(expr)
                 return {"result": str(result), "latex": latex(result), "graph_image": None}
             
-            # Check if this is a single-variable function of x (graphable)
+            # Check if this is a single-variable function (graphable)
             var = sorted(free_symbols, key=str)[0]
-            if is_single_variable_function(expr, 'x'):
-                # This is a function of x - generate plot image
+            if is_single_variable_function(expr):
+                # This is a function of one variable - generate plot image
+                var_name = str(var)
                 graph_image = generate_plot_image(expr, var)
                 return {
-                    "result": f"f(x) = {expr}",
+                    "result": f"f({var_name}) = {expr}",
                     "latex": latex(expr),
                     "graph_image": graph_image
                 }
