@@ -4,8 +4,15 @@
 from __future__ import annotations
 
 import os
+import io
+import base64
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+# Use non-interactive matplotlib backend for server
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # ============================================================================
 # SECURITY NOTE:
@@ -24,7 +31,8 @@ from flask_cors import CORS
 # NEVER use eval() on untrusted user input in a production application.
 # ============================================================================
 
-from sympy import symbols, Eq, solve, sympify
+from sympy import symbols, Eq, solve, sympify, latex, Symbol
+from sympy.plotting import plot
 from sympy.parsing.sympy_parser import (
     parse_expr,
     standard_transformations,
@@ -39,6 +47,68 @@ def create_app() -> Flask:
     # Enable CORS for all routes - required for frontend (localhost:5173) 
     # to communicate with backend (localhost:8000) across different ports
     CORS(app)
+
+    def is_single_variable_function(expr, var_name: str = 'x') -> bool:
+        """
+        Check if an expression is a function of exactly one variable named var_name.
+        Returns True if expr has exactly one free symbol and it matches var_name.
+        """
+        free_syms = expr.free_symbols
+        if len(free_syms) != 1:
+            return False
+        var = list(free_syms)[0]
+        return str(var) == var_name
+
+    def generate_plot_image(expr, var: Symbol, x_min: float = -10, x_max: float = 10) -> str | None:
+        """
+        Generate a plot image using matplotlib and sympy's lambdify.
+        Returns base64 string or None if plotting fails.
+        """
+        from sympy import lambdify
+        import numpy as np
+        
+        # Create a numerical function from the sympy expression
+        f = lambdify(var, expr, modules=['numpy'])
+        
+        # Generate x values
+        x_vals = np.linspace(x_min, x_max, 200)
+        
+        # Evaluate y values, handling potential errors
+        
+        y_vals = f(x_vals)
+        # Convert to numpy array if needed
+        y_vals = np.array(y_vals, dtype=float)
+        
+        
+        # Filter out infinities and NaNs for plotting
+        mask = np.isfinite(y_vals)
+        if not np.any(mask):
+            return None
+        
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(x_vals[mask], y_vals[mask], 'b-', linewidth=2)
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title(f'f(x) = {expr}')
+        ax.grid(True, alpha=0.3)
+        ax.axhline(y=0, color='k', linewidth=0.5)
+        ax.axvline(x=0, color='k', linewidth=0.5)
+        
+        # Save to bytes buffer
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight', facecolor='white')
+        buf.seek(0)
+        
+        # Convert to base64
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        
+        # Clean up
+        plt.close(fig)
+        buf.close()
+        
+        return img_base64
+        
 
     def solve_equation(equation_str: str) -> dict:
         """
@@ -127,9 +197,9 @@ def create_app() -> Flask:
             if not free_symbols:
                 # No variables - check if it's a true/false statement
                 if lhs == rhs:
-                    return {"result": "True (identity)"}
+                    return {"result": "True (identity)", "latex": None, "graph_image": None}
                 else:
-                    return {"result": "False (contradiction)"}
+                    return {"result": "False (contradiction)", "latex": None, "graph_image": None}
             
             # Solve for the first variable (usually x or y)
             # Sort to get consistent results (alphabetically)
@@ -149,10 +219,18 @@ def create_app() -> Flask:
             if not free_symbols:
                 # Pure numerical expression - evaluate it
                 result = sympify(expr)
-                return {"result": str(result)}
+                return {"result": str(result), "latex": latex(result), "graph_image": None}
             
-            # Solve expression = 0
+            # Check if this is a single-variable function of x (graphable)
             var = sorted(free_symbols, key=str)[0]
+            if is_single_variable_function(expr, 'x'):
+                # This is a function of x - generate plot image
+                graph_image = generate_plot_image(expr, var)
+                return {
+                    "result": f"f(x) = {expr}",
+                    "latex": latex(expr),
+                    "graph_image": graph_image
+                }
             
             # Use fallback solver with real symbol retry
             solutions, error = try_solve(expr, var, is_equation=False)
@@ -161,13 +239,15 @@ def create_app() -> Flask:
         
         # Format the solutions
         if not solutions:
-            return {"result": "No solution"}
+            return {"result": "No solution", "latex": None, "graph_image": None}
         elif len(solutions) == 1:
-            return {"result": f"{var} = {solutions[0]}"}
+            latex_str = f"{latex(var)} = {latex(solutions[0])}"
+            return {"result": f"{var} = {solutions[0]}", "latex": latex_str, "graph_image": None}
         else:
             # Multiple solutions (e.g., quadratic equations)
             solution_strs = [f"{var} = {sol}" for sol in solutions]
-            return {"result": ", ".join(solution_strs)}
+            latex_strs = [f"{latex(var)} = {latex(sol)}" for sol in solutions]
+            return {"result": ", ".join(solution_strs), "latex": ", ".join(latex_strs), "graph_image": None}
 
     @app.route("/solve", methods=["GET", "POST", "OPTIONS"])
     def solve_route():

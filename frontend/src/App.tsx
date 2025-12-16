@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import 'katex/dist/katex.min.css';
+import { InlineMath } from 'react-katex';
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:8000';
@@ -6,6 +8,8 @@ const API_BASE_URL =
 function App() {
   const [equation, setEquation] = useState<string>('');
   const [result, setResult] = useState<string>('');
+  const [latex, setLatex] = useState<string | null>(null);
+  const [graphImage, setGraphImage] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -15,12 +19,16 @@ function App() {
     if (!trimmedEquation) {
       setError('Please enter an equation.');
       setResult('');
+      setLatex(null);
+      setGraphImage(null);
       return;
     }
 
     setLoading(true);
     setError('');
     setResult('');
+    setLatex(null);
+    setGraphImage(null);
     try {
       // POST the equation as JSON to the backend API
       const response = await fetch(`${API_BASE_URL}/solve`, {
@@ -31,7 +39,7 @@ function App() {
         body: JSON.stringify({ equation: trimmedEquation }),
       });
 
-      const data: { result?: string; error?: string } = await response.json();
+      const data: { result?: string; latex?: string | null; graph_image?: string | null; error?: string } = await response.json();
 
       // Handle error responses (400 Bad Request from backend)
       if (!response.ok) {
@@ -39,6 +47,8 @@ function App() {
       }
 
       setResult(data.result || '');
+      setLatex(data.latex || null);
+      setGraphImage(data.graph_image || null);
     } catch (err) {
       // Handle network errors and API errors
       const message = err instanceof Error ? err.message : 'Request failed';
@@ -80,9 +90,25 @@ function App() {
 
       <div className="mt-4 min-h-[48px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
         {result && <p className="m-0 text-sm font-semibold text-emerald-700">{result}</p>}
+        {latex && (
+          <div className="mt-2 text-lg text-slate-800">
+            <InlineMath math={latex} />
+          </div>
+        )}
         {error && <p className="m-0 text-sm font-semibold text-red-700">{error}</p>}
         {!result && !error && <p className="m-0 text-sm text-slate-600">No response yet.</p>}
       </div>
+
+      {graphImage && (
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-lg font-semibold text-slate-900 mb-3">Graph</h2>
+          <img
+            src={`data:image/png;base64,${graphImage}`}
+            alt="Function graph"
+            className="w-full max-w-md mx-auto"
+          />
+        </div>
+      )}
     </div>
   );
 }
