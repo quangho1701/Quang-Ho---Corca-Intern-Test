@@ -31,8 +31,11 @@ import matplotlib.pyplot as plt
 # NEVER use eval() on untrusted user input in a production application.
 # ============================================================================
 
-from sympy import symbols, Eq, solve, sympify, latex, Symbol
+from sympy import symbols, Eq, solve, sympify, latex, Symbol, E, pi
 from sympy.plotting import plot
+
+# Mathematical constants that should not be treated as variables
+MATH_CONSTANTS = {'e', 'E', 'pi'}
 from sympy.parsing.sympy_parser import (
     parse_expr,
     standard_transformations,
@@ -48,12 +51,32 @@ def create_app() -> Flask:
     # to communicate with backend (localhost:8000) across different ports
     CORS(app)
 
+    def get_true_variables(expr) -> set:
+        """
+        Get the set of true variables from an expression, excluding mathematical constants.
+        Filters out symbols named 'e', 'E', or 'pi' from free_symbols.
+        """
+        return {sym for sym in expr.free_symbols if str(sym) not in MATH_CONSTANTS}
+
     def is_single_variable_function(expr) -> bool:
         """
         Check if an expression is a function of exactly one variable.
-        Returns True if expr has exactly one free symbol.
+        Excludes mathematical constants (e, E, pi) from the variable count.
         """
-        return len(expr.free_symbols) == 1
+        return len(get_true_variables(expr)) == 1
+
+    def substitute_constants(expr):
+        """
+        Replace symbol constants with their SymPy numerical values.
+        e/E -> sympy.E (Euler's number), pi -> sympy.pi
+        """
+        for sym in expr.free_symbols:
+            sym_name = str(sym)
+            if sym_name == 'e' or sym_name == 'E':
+                expr = expr.subs(sym, E)
+            elif sym_name == 'pi':
+                expr = expr.subs(sym, pi)
+        return expr
 
     def generate_plot_image(expr, var: Symbol, x_min: float = -10, x_max: float = 10) -> str | None:
         """
@@ -63,8 +86,11 @@ def create_app() -> Flask:
         from sympy import lambdify
         import numpy as np
         
+        # Substitute mathematical constants with their numerical values
+        expr_substituted = substitute_constants(expr)
+        
         # Create a numerical function from the sympy expression
-        f = lambdify(var, expr, modules=['numpy'])
+        f = lambdify(var, expr_substituted, modules=['numpy'])
         
         # Generate x values
         x_vals = np.linspace(x_min, x_max, 200)
@@ -219,11 +245,17 @@ def create_app() -> Flask:
                 return {"result": str(result), "latex": latex(result), "graph_image": None}
             
             # Check if this is a single-variable function (graphable)
+            # Use get_true_variables to exclude constants like e, pi
+            true_vars = get_true_variables(expr)
+            
+            # Define var for use in solving (first variable alphabetically)
             var = sorted(free_symbols, key=str)[0]
-            if is_single_variable_function(expr):
+            
+            if len(true_vars) == 1:
                 # This is a function of one variable - generate plot image
-                var_name = str(var)
-                graph_image = generate_plot_image(expr, var)
+                plot_var = list(true_vars)[0]
+                var_name = str(plot_var)
+                graph_image = generate_plot_image(expr, plot_var)
                 return {
                     "result": f"f({var_name}) = {expr}",
                     "latex": latex(expr),
