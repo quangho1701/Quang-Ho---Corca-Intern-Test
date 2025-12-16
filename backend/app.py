@@ -252,15 +252,37 @@ def create_app() -> Flask:
             var = sorted(free_symbols, key=str)[0]
             
             if len(true_vars) == 1:
-                # This is a function of one variable - generate plot image
+                # This is a function of one variable - generate plot image AND solve for roots
                 plot_var = list(true_vars)[0]
                 var_name = str(plot_var)
                 graph_image = generate_plot_image(expr, plot_var)
-                return {
-                    "result": f"f({var_name}) = {expr}",
-                    "latex": latex(expr),
-                    "graph_image": graph_image
-                }
+                
+                # Also solve for roots (treat expression as = 0)
+                solutions, error = try_solve(expr, plot_var, is_equation=False)
+                
+                if error or not solutions:
+                    # No roots found, just show the expression
+                    return {
+                        "result": f"f({var_name}) = {expr}",
+                        "latex": latex(expr),
+                        "graph_image": graph_image
+                    }
+                elif len(solutions) == 1:
+                    latex_str = f"{latex(plot_var)} = {latex(solutions[0])}"
+                    return {
+                        "result": f"{plot_var} = {solutions[0]}",
+                        "latex": latex_str,
+                        "graph_image": graph_image
+                    }
+                else:
+                    # Multiple solutions (e.g., quadratic equations)
+                    solution_strs = [f"{plot_var} = {sol}" for sol in solutions]
+                    latex_strs = [f"{latex(plot_var)} = {latex(sol)}" for sol in solutions]
+                    return {
+                        "result": ", ".join(solution_strs),
+                        "latex": ", ".join(latex_strs),
+                        "graph_image": graph_image
+                    }
             
             # Use fallback solver with real symbol retry
             solutions, error = try_solve(expr, var, is_equation=False)

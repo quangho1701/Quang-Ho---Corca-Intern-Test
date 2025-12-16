@@ -89,11 +89,13 @@ function App() {
       </form>
 
       <div className="mt-4 min-h-[48px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-        {result && <p className="m-0 text-sm font-semibold text-emerald-700">{result}</p>}
-        {latex && (
-          <div className="mt-2 text-lg text-slate-800">
+        {/* Show LaTeX if available, otherwise fall back to plain text result */}
+        {latex ? (
+          <div className="text-lg text-slate-800">
             <InlineMath math={latex} />
           </div>
+        ) : (
+          result && <p className="m-0 text-sm font-semibold text-emerald-700">{result}</p>
         )}
         {error && <p className="m-0 text-sm font-semibold text-red-700">{error}</p>}
         {!result && !error && <p className="m-0 text-sm text-slate-600">No response yet.</p>}
